@@ -52,6 +52,8 @@ from models.common import (
     MultiStreamC3,
     MultiStreamMaxPool2d,
     Fusion,
+    C3k2,
+    C2PSA,
 )
 from models.experimental import MixConv2d
 from utils.autoanchor import check_anchor_order
@@ -316,7 +318,7 @@ Model = DetectionModel  # retain YOLOv5 'Model' class for backwards compatibilit
 
 def parse_model(d, ch):
     """Parses a YOLOv5 model from a dict `d`, configuring layers based on input channels `ch` and model architecture."""
-    LOGGER.info(f"\n{'':>3}{'from':>18}{'n':>3}{'params':>10}  {'module':<40}{'arguments':<30}")
+    # LOGGER.info(f"\n{'':>3}{'from':>18}{'n':>3}{'params':>10}  {'module':<40}{'arguments':<30}")
     anchors, nc, gd, gw, act, ch_mul = (
         d["anchors"],
         d["nc"],
@@ -362,6 +364,8 @@ def parse_model(d, ch):
             C3x,
             MultiStreamConv,
             MultiStreamC3,
+            C3k2,
+            C2PSA,
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output

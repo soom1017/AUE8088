@@ -11,8 +11,8 @@ python train_simple.py \
   --batch-size 16 \
   --epochs 20 \
   --data data/kaist-rgbt.yaml \
-  --cfg models/yolov5n_kaist-rgbt.yaml \
-  --weights yolov5n.pt \
+  --cfg models/yolov11n_kaist-rgbt.yaml \
+  --weights yolov11n.pt \
   --workers 16 \
   --name "$RUN_NAME" \
   --device "$DEVICE" \
