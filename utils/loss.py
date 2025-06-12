@@ -165,11 +165,13 @@ class ComputeLoss:
 
                 # If prediction is matched (iou > 0.5) with bounding box marked as ignore,
                 # do not calculate objectness loss
-                ign_idx = (tcls[i] == -1) & (iou > self.hyp["iou_t"])
-                keep = ~ign_idx
-                b, a, gj, gi, iou = b[keep], a[keep], gj[keep], gi[keep], iou[keep]
+                person = (tcls[i] == 0) & (iou > self.hyp["iou_t"])
+                ps_b, ps_a, ps_gj, ps_gi, ps_iou = b[person], a[person], gj[person], gi[person], iou[person]
+                tobj[ps_b, ps_a, ps_gj, ps_gi] = ps_iou * 0 + 1.0
 
-                tobj[b, a, gj, gi] = iou  # iou ratio
+                people = (tcls[i] == 2) & (iou > self.hyp["iou_t"])
+                pp_b, pp_a, pp_gj, pp_gi, pp_iou = b[people], a[people], gj[people], gi[people], iou[people]
+                tobj[pp_b, pp_a, pp_gj, pp_gi] = pp_iou * 0 + 0.6   # soft label for people class
 
                 # Classification
                 t = torch.full_like(pcls, self.cn, device=self.device)  # targets

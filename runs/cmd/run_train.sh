@@ -16,5 +16,4 @@ python train_simple.py \
   --workers 16 \
   --name "$RUN_NAME" \
   --device "$DEVICE" \
-  --rgbt \
-  --single-cls
+  --rgbt
