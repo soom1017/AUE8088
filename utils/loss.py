@@ -165,18 +165,21 @@ class ComputeLoss:
 
                 # If prediction is matched (iou > 0.5) with bounding box marked as ignore,
                 # do not calculate objectness loss
-                person = (tcls[i] == 0) & (iou > self.hyp["iou_t"])
-                ps_b, ps_a, ps_gj, ps_gi, ps_iou = b[person], a[person], gj[person], gi[person], iou[person]
-                tobj[ps_b, ps_a, ps_gj, ps_gi] = ps_iou * 0 + 1.0
+                ign_idx = (tcls[i] == -1) & (iou > self.hyp["iou_t"])
+                keep = ~ign_idx
+                b, a, gj, gi, iou = b[keep], a[keep], gj[keep], gi[keep], iou[keep]
 
-                people = (tcls[i] == 2) & (iou > self.hyp["iou_t"])
-                pp_b, pp_a, pp_gj, pp_gi, pp_iou = b[people], a[people], gj[people], gi[people], iou[people]
-                tobj[pp_b, pp_a, pp_gj, pp_gi] = pp_iou * 0 + 0.6   # soft label for people class
+                tobj[b, a, gj, gi] = iou  # iou ratio
 
                 # Classification
-                t = torch.full_like(pcls, self.cn, device=self.device)  # targets
-                t[range(n), tcls[i]] = self.cp
-                lcls += self.BCEcls(pcls, t)  # BCE
+                if self.nc > 1:  # cls loss (only if multiple classes)
+                    t = torch.full_like(pcls, self.cn, device=self.device)  # targets
+                    t[range(n), tcls[i]] = self.cp
+                    lcls += self.BCEcls(pcls, t)  # BCE
+
+                # Append targets to text file
+                # with open('targets.txt', 'a') as file:
+                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
 
             obji = self.BCEobj(pi[..., 4], tobj)
             lobj += obji * self.balance[i]  # obj loss
