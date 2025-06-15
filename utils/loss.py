@@ -163,23 +163,27 @@ class ComputeLoss:
                 if self.gr < 1:
                     iou = (1.0 - self.gr) + self.gr * iou
 
-                # If prediction is matched (iou > 0.5) with bounding box marked as ignore,
-                # do not calculate objectness loss
-                ign_idx = (tcls[i] == -1) & (iou > self.hyp["iou_t"])
-                keep = ~ign_idx
-                b, a, gj, gi, iou = b[keep], a[keep], gj[keep], gi[keep], iou[keep]
+                person = (tcls[i] == 0) & (iou > self.hyp["iou_t"])
+                ps_b, ps_a, ps_gj, ps_gi, ps_iou = b[person], a[person], gj[person], gi[person], iou[person]
+                tobj[ps_b, ps_a, ps_gj, ps_gi] = ps_iou * 0 + 1.0
 
-                tobj[b, a, gj, gi] = iou  # iou ratio
+                ign_idx = (tcls[i] == -1) & (iou > self.hyp["iou_t"])
+                ign_b, ign_a, ign_gj, ign_gi, ign_iou = b[ign_idx], a[ign_idx], gj[ign_idx], gi[ign_idx], iou[ign_idx]
+                tobj[ign_b, ign_a, ign_gj, ign_gi] = ign_iou * 0 + 0.6
 
                 # Classification
                 if self.nc > 1:  # cls loss (only if multiple classes)
                     t = torch.full_like(pcls, self.cn, device=self.device)  # targets
                     t[range(n), tcls[i]] = self.cp
                     lcls += self.BCEcls(pcls, t)  # BCE
-
-                # Append targets to text file
-                # with open('targets.txt', 'a') as file:
-                #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
+                else:
+                    # self.nc = 1
+                    assert pcls.shape[1] == 1, f"single cls, but self.nc={self.nc}, pcls.shape={pcls.shape}"
+    
+                    t = torch.full_like(pcls, self.cn, device=self.device)  # targets
+                    person_cls = (tcls[i] == 0)  # person class index
+                    t[person_cls] = self.cp
+                    lcls += self.BCEcls(pcls, t)  # BCE for person class
 
             obji = self.BCEobj(pi[..., 4], tobj)
             lobj += obji * self.balance[i]  # obj loss
