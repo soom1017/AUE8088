@@ -83,8 +83,8 @@ def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
         lut_val = np.clip(x * r[2], 0, 255).astype(dtype)
 
         im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
-        cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=im)  # no return needed
-
+        im[:] = cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR)     # OpenCV version issue
+    return im
 
 def hist_equalize(im, clahe=True, bgr=False):
     """Equalizes image histogram, with optional CLAHE, for BGR or RGB image with shape (n,m,3) and range 0-255."""
@@ -191,10 +191,20 @@ def random_perspective(
     # Combined rotation matrix
     M = T @ S @ R @ P @ C  # order of operations (right to left) is IMPORTANT
     if (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any():  # image changed
-        if perspective:
-            im = cv2.warpPerspective(im, M, dsize=(width, height), borderValue=(114, 114, 114))
-        else:  # affine
-            im = cv2.warpAffine(im, M[:2], dsize=(width, height), borderValue=(114, 114, 114))
+        if im.shape[2] > 3:
+            im2 = np.full((height, width, 6), 114, dtype=im.dtype)  # new image
+            if perspective:
+                im2[..., :3] = cv2.warpPerspective(im[..., :3], M, dsize=(width, height), borderValue=(114, 114, 114))
+                im2[..., 3:] = cv2.warpPerspective(im[..., 3:], M, dsize=(width, height), borderValue=(114, 114, 114))
+            else:  # affine
+                im2[..., :3] = cv2.warpAffine(im[..., :3], M[:2], dsize=(width, height), borderValue=(114, 114, 114))
+                im2[..., 3:] = cv2.warpAffine(im[..., 3:], M[:2], dsize=(width, height), borderValue=(114, 114, 114))
+            im = im2  # update image
+        else:
+            if perspective:
+                im = cv2.warpPerspective(im, M, dsize=(width, height), borderValue=(114, 114, 114))
+            else:  # affine
+                im = cv2.warpAffine(im, M[:2], dsize=(width, height), borderValue=(114, 114, 114))
 
     # Visualize
     # import matplotlib.pyplot as plt
@@ -298,14 +308,22 @@ def cutout(im, labels, p=0.5):
     return labels
 
 
-def mixup(im, labels, im2, labels2):
+def mixup(im, labels, im2, labels2, rgbt=False):
     """
     Applies MixUp augmentation by blending images and labels.
 
     See https://arxiv.org/pdf/1710.09412.pdf for details.
     """
-    r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
-    im = (im * r + im2 * (1 - r)).astype(np.uint8)
+    r = np.random.beta(8.0, 8.0)  # mixup ratio, alpha=beta=32.0
+    if rgbt:  # RGBT MixUp
+        t1, t2 = im[0], im2[0]
+        rgb1, rgb2 = im[1], im2[1]
+
+        t = (t1 * r + t2 * (1 - r)).astype(np.uint8)
+        rgb = (rgb1 * r + rgb2 * (1 - r)).astype(np.uint8)
+        im = [t, rgb]
+    else:  
+        im = (im * r + im2 * (1 - r)).astype(np.uint8)
     labels = np.concatenate((labels, labels2), 0)
     return im, labels
 
