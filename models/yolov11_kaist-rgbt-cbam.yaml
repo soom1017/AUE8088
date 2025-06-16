@@ -1,0 +1,52 @@
+# YOLOv11n RGBT configuration for KAIST multispectral pedestrian detection
+# ref: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/models/11/yolo11.yaml
+
+# Parameters
+nc: 1 # number of classes
+depth_multiple: 0.67
+width_multiple: 0.75
+anchors:
+  - [16, 32, 20, 48, 28, 64]          # P3/8
+  - [35, 76, 48, 88, 42, 108]         # P4/16
+  - [54, 128, 68, 148, 78, 188]       # P5/32
+
+
+# YOLOv11 (+RGBT) backbone
+backbone:
+  # [from, number, module, args]
+  [
+    [-1, 1, MultiStreamConv, [64, 6, 2, 2]],  # 0-P1/2
+    [-1, 1, MultiStreamCBAM, [64]],           # 1-MultiStream CBAM
+    [-1, 1, MultiStreamConv, [128, 3, 2]],    # 2-P2/4
+    [-1, 2, MultiStreamC3, [256]],            # 3
+    [-1, 1, MultiStreamCBAM, [256]],          # 4-MultiStream CBAM
+    [-1, 1, Fusion, ['concat', 2]],           # 5-Fusion (256+256=512)
+    [-1, 1, CBAM, [512]],                     # 6-CBAM for 512 channels
+    [-1, 1, Conv, [256, 3, 2]],               # 7-P3/8
+    [-1, 2, C3k2, [256, False]],              # 8
+    [-1, 1, Conv, [512, 3, 2]],               # 9-P4/16
+    [-1, 2, C3k2, [512, True]],               # 10
+    [-1, 1, Conv, [1024, 3, 2]],              # 11-P5/32
+    [-1, 2, C2PSA, [1024]],                   # 12
+    [-1, 1, SPPF, [1024, 5]],                 # 13
+  ]
+
+head: [
+    [-1, 1, nn.Upsample, [None, 2, "nearest"]],
+    [[-1, 10], 1, Concat, [1]],                # cat backbone P4
+    [-1, 2, C3k2, [512, False]],               # 16
+
+    [-1, 1, nn.Upsample, [None, 2, "nearest"]],
+    [[-1, 8], 1, Concat, [1]],                 # cat backbone P3
+    [-1, 2, C3k2, [256, False]],               # 19 (P3/8-small)
+
+    [-1, 1, Conv, [256, 3, 2]],
+    [[-1, 16], 1, Concat, [1]],                # cat head P4
+    [-1, 2, C3k2, [512, False]],               # 22 (P4/16-medium)
+
+    [-1, 1, Conv, [512, 3, 2]],
+    [[-1, 13], 1, Concat, [1]],                # cat head P5
+    [-1, 2, C3k2, [1024, True]],               # 25 (P5/32-large)
+
+    [[19, 22, 25], 1, Detect, [nc, anchors]], # Detect(P3, P4, P5)
+  ]

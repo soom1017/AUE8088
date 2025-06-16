@@ -1177,17 +1177,6 @@ class C3k2(C2f):
             C3k(self.c, self.c, 2, shortcut, g) if c3k else Bottleneck(self.c, self.c, shortcut, g) for _ in range(n)
         )
     
-class MultiStreamC3k2(nn.Module):
-    # C3k2 block for RGB+T inputs (YOLOv11 style)
-    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True, num_streams=2):
-        """Initializes MultiStreamC3k2 module for multi-stream inputs."""
-        super().__init__()
-        self.c3k2_layers = nn.ModuleList([C3k2(c1, c2, n, c3k, e, g, shortcut) for _ in range(num_streams)])
-
-    def forward(self, x):
-        assert len(x) == len(self.c3k2_layers), 'The number of input data stream does not match the predefined settings.'
-        return [_layer(_x) for _x, _layer in zip(x, self.c3k2_layers)]
-
 class Attention(nn.Module):
     def __init__(self, dim: int, num_heads: int = 8, attn_ratio: float = 0.5):
         super().__init__()
@@ -1242,3 +1231,55 @@ class C2PSA(nn.Module):
         a, b = self.cv1(x).split((self.c, self.c), dim=1)
         b = self.m(b)
         return self.cv2(torch.cat((a, b), 1))
+
+class ChannelAttention(nn.Module):
+    def __init__(self, in_planes, ratio=16):
+        super(ChannelAttention, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        
+        self.fc1 = nn.Conv2d(in_planes, in_planes // ratio, 1, bias=False)
+        self.relu1 = nn.ReLU()
+        self.fc2 = nn.Conv2d(in_planes // ratio, in_planes, 1, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = self.fc2(self.relu1(self.fc1(self.avg_pool(x))))
+        max_out = self.fc2(self.relu1(self.fc1(self.max_pool(x))))
+        out = avg_out + max_out
+        return self.sigmoid(out)
+
+class SpatialAttention(nn.Module):
+    def __init__(self, kernel_size=7):
+        super(SpatialAttention, self).__init__()
+        self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=kernel_size//2, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        x = torch.cat([avg_out, max_out], dim=1)
+        x = self.conv1(x)
+        return self.sigmoid(x)
+
+class CBAM(nn.Module):
+    def __init__(self, in_planes, ratio=16, kernel_size=7):
+        super(CBAM, self).__init__()
+        self.channel_attention = ChannelAttention(in_planes, ratio)
+        self.spatial_attention = SpatialAttention(kernel_size)
+
+    def forward(self, x):
+        x = x * self.channel_attention(x)
+        x = x * self.spatial_attention(x)
+        return x
+
+class MultiStreamCBAM(nn.Module):
+    def __init__(self, in_planes, ratio=16, kernel_size=7, num_streams=2):
+        """Initializes MultiStream CBAM for RGB+T inputs."""
+        super().__init__()
+        self.cbam_layers = nn.ModuleList([CBAM(in_planes, ratio, kernel_size) for _ in range(num_streams)])
+
+    def forward(self, x):
+        """Applies CBAM to each input stream separately."""
+        assert len(x) == len(self.cbam_layers), 'The number of input data stream does not match the predefined settings.'
+        return [_layer(_x) for _x, _layer in zip(x, self.cbam_layers)]

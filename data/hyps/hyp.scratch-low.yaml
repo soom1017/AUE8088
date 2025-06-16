@@ -3,25 +3,25 @@
 # python train.py --batch 64 --cfg yolov5n6.yaml --weights '' --data coco.yaml --img 640 --epochs 300 --linear
 # See tutorials for hyperparameter evolution https://github.com/ultralytics/yolov5#tutorials
 
-lr0: 0.01 # initial learning rate (SGD=1E-2, Adam=1E-3)
-lrf: 0.005 # final OneCycleLR learning rate (lr0 * lrf)
+lr0: 0.006 # 더 낮은 학습률 (0.008 -> 0.006)
+lrf: 0.003 # 더 낮은 최종 학습률 (0.005 -> 0.003)
 momentum: 0.937 # SGD momentum/Adam beta1
 weight_decay: 0.0005 # optimizer weight decay 5e-4
 warmup_epochs: 3.0 # warmup epochs (fractions ok)
 warmup_momentum: 0.8 # warmup initial momentum
 warmup_bias_lr: 0.1 # warmup initial bias lr
-box: 0.20 # box loss gain
+box: 0.25 # box loss 더 증가 (0.20 -> 0.25)
 cls: 0.20 # cls loss gain
 cls_pw: 1.0 # cls BCELoss positive_weight
 obj: 2.5 # obj loss gain (scale with pixels)
 obj_pw: 1.0 # obj BCELoss positive_weight
-iou_t: 0.25 # IoU training threshold
+iou_t: 0.3 # IoU threshold 더 상향 (0.25 -> 0.3)
 anchor_t: 3.5 # anchor-multiple threshold
 # anchors: 3  # anchors per output layer (0 to ignore)
 fl_gamma: 1.5 # focal loss gamma (efficientDet default gamma=1.5)
-hsv_h: 0.015 # image HSV-Hue augmentation (fraction)
-hsv_s: 0.7 # image HSV-Saturation augmentation (fraction)
-hsv_v: 0.4 # image HSV-Value augmentation (fraction)
+hsv_h: 0.02 # HSV-Hue 증가 (0.015 -> 0.02)
+hsv_s: 0.8 # HSV-Saturation 증가 (0.7 -> 0.8)
+hsv_v: 0.5 # HSV-Value 증가 (0.4 -> 0.5)
 degrees: 15.0 # image rotation
 translate: 0.25 # image translation
 scale: 0.8 # image scale
